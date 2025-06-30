@@ -1,0 +1,27 @@
+# Rust build artifacts
+/target/
+Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local development files (anything ending with -local)
+*-local
+*-local/
+**/*-local
+**/*-local/
+
+# Old development directories  
+/src-old/
+
+# Development files
+*.orig
+*.bak
+*~ 

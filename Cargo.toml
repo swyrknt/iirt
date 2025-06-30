@@ -1,0 +1,34 @@
+[package]
+name = "iirt-engine"
+version = "2.0.0"
+edition = "2021"
+authors = ["Sawyer Kent <sawyerkent.me@gmail.com>"]
+description = "Computational implementation of Information Integration Reality Theory (IIRT)"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/phyngine/iirt"
+keywords = ["physics", "information-theory", "computational-science", "simulation", "integration"]
+categories = ["science", "simulation"]
+
+[lib]
+name = "iirt_engine"
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+
+[[example]]
+name = "reality_demo"
+path = "examples/reality_demo.rs"
+
+[[example]]
+name = "physics_emergence"
+path = "examples/physics_emergence.rs"
+
+[[example]]
+name = "universe_computing_itself"
+path = "examples/universe_computing_itself.rs"
+
+[features]
+default = [] 
