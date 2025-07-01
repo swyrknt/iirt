@@ -15,6 +15,7 @@ name = "iirt_engine"
 path = "src/lib.rs"
 
 [dependencies]
+rayon = { version = "1.7", optional = true }
 
 [dev-dependencies]
 
@@ -30,5 +31,40 @@ path = "examples/physics_emergence.rs"
 name = "universe_computing_itself"
 path = "examples/universe_computing_itself.rs"
 
+[[example]]
+name = "emergent_evolution"
+path = "examples/emergent_evolution.rs"
+
+[[example]]
+name = "fundamental_truth_demo"
+path = "examples/fundamental_truth_demo.rs"
+
+[[example]]
+name = "core_properties_verification"
+path = "examples/core_properties_verification.rs"
+
+[[example]]
+name = "threshold_characterization_experiment"
+path = "examples/threshold_characterization_experiment.rs"
+
+
+[[example]]
+name = "cosmic_evolution_demo"
+path = "examples/cosmic_evolution_demo.rs"
+
+[[example]]
+name = "evolving_vacuum_experiment"
+path = "examples/evolving_vacuum_experiment.rs"
+
+[[example]]
+name = "exponential_vacuum_test"
+path = "examples/exponential_vacuum_test.rs"
+
+[[example]]
+name = "vacuum_evolution_proof"
+path = "examples/vacuum_evolution_proof.rs"
+
+
 [features]
-default = [] 
+default = ["parallel"]
+parallel = ["rayon"] 
