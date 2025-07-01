@@ -1,13 +1,9 @@
 //! IIRT Reality Engine
 //!
-//! Computational implementation of Information Integration Reality Theory (IIRT).
+//! Pure implementation of Information Integration Reality Theory (IIRT).
 //! 
-//! Author: Sawyer Kent
-//! Copyright (c) 2025 Sawyer Kent
-//!
 //! Core equation: ∂ℐ/∂t = D∇²ℐ - ε²ℐ + ℐ(1-ℐ/ℐ_max)
-//!
-//! Integration threshold: ℐ ≥ 0.707107... (1/√2)
+//! Threshold: ℐ_crit = 1/√2
 
 use crate::constants::*;
 
@@ -16,83 +12,63 @@ use crate::constants::*;
 pub struct Information(pub f64);
 
 impl Information {
-    /// Create information density value, bounded to valid range
+    /// Create information density, clamped to valid range
     pub fn new(density: f64) -> Self {
         Self(density.clamp(0.0, MAX_INFORMATION))
     }
     
-    /// Get information density in bits
+    /// Get density in bits
     pub fn density(&self) -> f64 { self.0 }
     
-    /// Check if information density exceeds integration threshold
+    /// Check if exceeds consciousness threshold
     pub fn is_conscious(&self) -> bool { 
         self.0 >= INTEGRATION_THRESHOLD 
     }
     
-    /// Calculate normalized consciousness level (0.0 to 1.0)
-    pub fn consciousness_level(&self) -> f64 {
-        if self.is_conscious() {
-            (self.0 - INTEGRATION_THRESHOLD) / (MAX_INFORMATION - INTEGRATION_THRESHOLD)
-        } else {
-            0.0
-        }
-    }
-    
-    /// Calculate uncertainty parameter for this information density
+    /// Uncertainty: ε(ℐ) = max(0.5/(1+ℐ), ε_min)
     fn uncertainty(&self) -> f64 {
         (0.5 / (1.0 + self.0)).max(MIN_UNCERTAINTY)
     }
     
-    /// Calculate self-interaction term: ℐ(1-ℐ/ℐ_max)
-    fn self_interaction(&self) -> f64 {
+    /// Self-creation: ℐ(1-ℐ/ℐ_max)
+    fn self_creation(&self) -> f64 {
         self.0 * (1.0 - self.0 / MAX_INFORMATION)
     }
     
-    /// Calculate uncertainty decay term: -ε²ℐ
+    /// Uncertainty decay: -ε²ℐ
     fn uncertainty_decay(&self) -> f64 {
         -self.uncertainty().powi(2) * self.0
     }
     
-    /// Calculate total intrinsic change rate (excluding diffusion)
+    /// Total intrinsic rate: -ε²ℐ + ℐ(1-ℐ/ℐ_max)
     pub fn intrinsic_rate(&self) -> f64 {
-        self.self_interaction() + self.uncertainty_decay()
+        self.self_creation() + self.uncertainty_decay()
     }
 }
 
-/// Three-dimensional information field implementing IIRT dynamics
+/// 3D Information field implementing IIRT dynamics
 pub struct Reality {
-    /// Information density at each grid point
     field: Vec<Information>,
-    
-    /// Spatial resolution (N×N×N grid)
     resolution: usize,
-    
-    /// Spatial domain bounds (min, max)
     bounds: (f64, f64),
-    
-    /// Diffusion coefficient D
     diffusion: f64,
-    
-    /// Time step size
     dt: f64,
-    
-    /// Current simulation time
     time: f64,
-    
-    /// Current time step number
     step: u64,
+    cosmic_age: f64,
 }
 
 impl Reality {
-    /// Create reality initialized to vacuum state
-    pub fn from_vacuum() -> Self {
-        Self::new(DEFAULT_RESOLUTION, DEFAULT_BOUNDS, DEFAULT_DIFFUSION, DEFAULT_DT)
+    /// Create new reality field
+    pub fn new(resolution: usize, bounds: (f64, f64), diffusion: f64, dt: f64) -> Self {
+        Self::new_at_cosmic_age(resolution, bounds, diffusion, dt, CURRENT_COSMIC_AGE_GYR)
     }
     
-    /// Create reality with specified parameters
-    pub fn new(resolution: usize, bounds: (f64, f64), diffusion: f64, dt: f64) -> Self {
+    /// Create reality at specific cosmic age
+    pub fn new_at_cosmic_age(resolution: usize, bounds: (f64, f64), diffusion: f64, dt: f64, cosmic_age: f64) -> Self {
         let size = resolution * resolution * resolution;
-        let field = vec![Information::new(VACUUM_INFORMATION); size];
+        let vacuum = vacuum_at_cosmic_time(cosmic_age);
+        let field = vec![Information::new(vacuum); size];
         
         Self {
             field,
@@ -102,58 +78,45 @@ impl Reality {
             dt,
             time: 0.0,
             step: 0,
+            cosmic_age,
         }
     }
     
-    /// Add localized information perturbation with Gaussian profile
+    /// Create vacuum reality (current cosmic age)
+    pub fn from_vacuum() -> Self {
+        Self::new(DEFAULT_RESOLUTION, DEFAULT_BOUNDS, DEFAULT_DIFFUSION, DEFAULT_DT)
+    }
+    
+    /// Create primordial reality (t=0, vacuum at threshold)
+    pub fn from_primordial_vacuum() -> Self {
+        Self::new_at_cosmic_age(DEFAULT_RESOLUTION, DEFAULT_BOUNDS, DEFAULT_DIFFUSION, DEFAULT_DT, 0.0)
+    }
+    
+    /// Add information at position
     pub fn add_information(&mut self, position: (f64, f64, f64), amplitude: f64) {
-        if let Ok((i, j, k)) = self.world_to_grid(position) {
-            let sigma = 1.5;
-            for di in -3..=3 {
-                for dj in -3..=3 {
-                    for dk in -3..=3 {
-                        let ni = i as i32 + di;
-                        let nj = j as i32 + dj;
-                        let nk = k as i32 + dk;
-                        
-                        if self.in_bounds(ni, nj, nk) {
-                            let idx = self.index(ni as usize, nj as usize, nk as usize);
-                            let dist_sq = (di * di + dj * dj + dk * dk) as f64;
-                            let value = amplitude * (-dist_sq / (2.0 * sigma * sigma)).exp();
-                            let new_density = VACUUM_INFORMATION + value;
-                            self.field[idx] = Information::new(new_density);
-                        }
-                    }
-                }
-            }
+        if let Ok(idx) = self.position_to_index(position) {
+            let current = self.field[idx].density();
+            self.field[idx] = Information::new(current + amplitude);
         }
     }
     
-    /// Advance simulation by one time step using IIRT equation
+    /// Evolve one time step: ∂ℐ/∂t = D∇²ℐ - ε²ℐ + ℐ(1-ℐ/ℐ_max)
     pub fn evolve(&mut self) {
         let mut new_field = self.field.clone();
         
-        // Apply IIRT equation to interior points
         for i in 1..self.resolution-1 {
             for j in 1..self.resolution-1 {
                 for k in 1..self.resolution-1 {
                     let idx = self.index(i, j, k);
                     let info = self.field[idx];
                     
-                    // IIRT equation: ∂ℐ/∂t = D∇²ℐ - ε²ℐ + ℐ(1-ℐ/ℐ_max)
-                    
-                    // Diffusion term: D∇²ℐ
+                    // IIRT equation
                     let laplacian = self.laplacian(i, j, k);
                     let diffusion_term = self.diffusion * laplacian;
-                    
-                    // Intrinsic terms: -ε²ℐ + ℐ(1-ℐ/ℐ_max)
                     let intrinsic_term = info.intrinsic_rate();
-                    
-                    // Total rate of change
                     let change = diffusion_term + intrinsic_term;
-                    let new_density = info.density() + self.dt * change;
                     
-                    new_field[idx] = Information::new(new_density);
+                    new_field[idx] = Information::new(info.density() + self.dt * change);
                 }
             }
         }
@@ -163,78 +126,53 @@ impl Reality {
         self.step += 1;
     }
     
-    /// Calculate total information in the field
+    /// Get information at position
+    pub fn information_at(&self, position: (f64, f64, f64)) -> Option<Information> {
+        self.position_to_index(position).ok().map(|idx| self.field[idx])
+    }
+    
+    /// Total information in field
     pub fn total_information(&self) -> f64 {
         self.field.iter().map(|i| i.density()).sum()
     }
     
-    /// Calculate information created above vacuum baseline
-    pub fn information_created(&self) -> f64 {
-        let vacuum_total = VACUUM_INFORMATION * self.field.len() as f64;
-        self.total_information() - vacuum_total
-    }
-    
-    /// Count points exceeding integration threshold
+    /// Count conscious points
     pub fn conscious_count(&self) -> usize {
         self.field.iter().filter(|i| i.is_conscious()).count()
     }
     
-    /// Find maximum consciousness level in the field
-    pub fn max_consciousness(&self) -> f64 {
-        self.field.iter()
-            .map(|i| i.consciousness_level())
-            .fold(0.0, f64::max)
-    }
-    
-    /// Check if any points exceed integration threshold
+    /// Check if any point is conscious
     pub fn is_conscious(&self) -> bool {
         self.conscious_count() > 0
     }
     
-    /// Get current simulation time
+    /// Current vacuum density
+    pub fn vacuum_density(&self) -> f64 {
+        vacuum_at_cosmic_time(self.cosmic_age)
+    }
+    
+    /// Information created above vacuum
+    pub fn information_created(&self) -> f64 {
+        let vacuum_total = self.vacuum_density() * self.field.len() as f64;
+        self.total_information() - vacuum_total
+    }
+    
+    /// Get current time
     pub fn time(&self) -> f64 { self.time }
     
-    /// Get current time step number
+    /// Get step count  
     pub fn step(&self) -> u64 { self.step }
     
-    /// Get information density at specified position
-    pub fn information_at(&self, position: (f64, f64, f64)) -> Option<Information> {
-        if let Ok((i, j, k)) = self.world_to_grid(position) {
-            let idx = self.index(i, j, k);
-            Some(self.field[idx])
-        } else {
-            None
-        }
-    }
+    /// Get cosmic age
+    pub fn cosmic_age(&self) -> f64 { self.cosmic_age }
     
-    /// Get all points exceeding integration threshold with their positions and levels
-    pub fn conscious_points(&self) -> Vec<(f64, f64, f64, f64)> {
-        let mut conscious = Vec::new();
-        
-        for i in 0..self.resolution {
-            for j in 0..self.resolution {
-                for k in 0..self.resolution {
-                    let idx = self.index(i, j, k);
-                    let info = self.field[idx];
-                    
-                    if info.is_conscious() {
-                        let (x, y, z) = self.grid_to_world(i, j, k);
-                        conscious.push((x, y, z, info.consciousness_level()));
-                    }
-                }
-            }
-        }
-        
-        conscious
-    }
-    
-    // Private helper methods
+    // Private helpers
     
     fn index(&self, i: usize, j: usize, k: usize) -> usize {
         k * self.resolution * self.resolution + j * self.resolution + i
     }
     
-    fn world_to_grid(&self, (x, y, z): (f64, f64, f64)) -> Result<(usize, usize, usize), ()> {
+    fn position_to_index(&self, (x, y, z): (f64, f64, f64)) -> Result<usize, ()> {
         let (min_bound, max_bound) = self.bounds;
         let scale = (max_bound - min_bound) / (self.resolution - 1) as f64;
         
@@ -245,30 +183,12 @@ impl Reality {
         if i >= self.resolution || j >= self.resolution || k >= self.resolution {
             Err(())
         } else {
-            Ok((i, j, k))
+            Ok(self.index(i, j, k))
         }
-    }
-    
-    fn grid_to_world(&self, i: usize, j: usize, k: usize) -> (f64, f64, f64) {
-        let (min_bound, max_bound) = self.bounds;
-        let scale = (max_bound - min_bound) / (self.resolution - 1) as f64;
-        
-        let x = min_bound + i as f64 * scale;
-        let y = min_bound + j as f64 * scale;
-        let z = min_bound + k as f64 * scale;
-        
-        (x, y, z)
-    }
-    
-    fn in_bounds(&self, i: i32, j: i32, k: i32) -> bool {
-        i >= 0 && i < self.resolution as i32 &&
-        j >= 0 && j < self.resolution as i32 &&
-        k >= 0 && k < self.resolution as i32
     }
     
     fn laplacian(&self, i: usize, j: usize, k: usize) -> f64 {
         let center = self.field[self.index(i, j, k)].density();
-        
         let neighbors = [
             self.field[self.index(i-1, j, k)].density(),
             self.field[self.index(i+1, j, k)].density(),
@@ -277,80 +197,7 @@ impl Reality {
             self.field[self.index(i, j, k-1)].density(),
             self.field[self.index(i, j, k+1)].density(),
         ];
-        
         neighbors.iter().sum::<f64>() - 6.0 * center
-    }
-}
-
-/// Iterator for stepped evolution of reality
-pub struct Evolution<'a> {
-    reality: &'a mut Reality,
-    max_steps: Option<u64>,
-}
-
-impl<'a> Evolution<'a> {
-    pub fn new(reality: &'a mut Reality) -> Self {
-        Self { reality, max_steps: None }
-    }
-    
-    pub fn max_steps(mut self, steps: u64) -> Self {
-        self.max_steps = Some(steps);
-        self
-    }
-}
-
-impl<'a> Iterator for Evolution<'a> {
-    type Item = RealitySnapshot;
-    
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(max) = self.max_steps {
-            if self.reality.step >= max {
-                return None;
-            }
-        }
-        
-        self.reality.evolve();
-        Some(RealitySnapshot {
-            step: self.reality.step,
-            time: self.reality.time,
-            total_information: self.reality.total_information(),
-            information_created: self.reality.information_created(),
-            conscious_count: self.reality.conscious_count(),
-            max_consciousness: self.reality.max_consciousness(),
-            is_conscious: self.reality.is_conscious(),
-        })
-    }
-}
-
-impl Reality {
-    /// Create iterator for stepped evolution
-    pub fn evolution(&mut self) -> Evolution<'_> {
-        Evolution::new(self)
-    }
-}
-
-/// Snapshot of reality state at a given time step
-#[derive(Debug, Clone)]
-pub struct RealitySnapshot {
-    pub step: u64,
-    pub time: f64,
-    pub total_information: f64,
-    pub information_created: f64,
-    pub conscious_count: usize,
-    pub max_consciousness: f64,
-    pub is_conscious: bool,
-}
-
-impl std::fmt::Display for RealitySnapshot {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f,
-            "Step {}: {:.1} bits ({:.1} net), {} integrated (max {:.3})",
-            self.step,
-            self.total_information,
-            self.information_created,
-            self.conscious_count,
-            self.max_consciousness
-        )
     }
 }
 
@@ -359,7 +206,7 @@ mod tests {
     use super::*;
     
     #[test]
-    fn test_integration_threshold() {
+    fn test_consciousness_threshold() {
         assert!(!Information::new(0.5).is_conscious());
         assert!(Information::new(INTEGRATION_THRESHOLD).is_conscious());
         assert!(Information::new(1.0).is_conscious());
@@ -372,32 +219,15 @@ mod tests {
     }
     
     #[test]
-    fn test_reality_evolution() {
+    fn test_iirt_equation() {
         let mut reality = Reality::from_vacuum();
         reality.add_information((0.0, 0.0, 0.0), 2.0);
         
-        let initial_info = reality.total_information();
-        let _initial_conscious = reality.conscious_count();
-        
+        let initial = reality.total_information();
         reality.evolve();
-        
         let final_info = reality.total_information();
-        let final_conscious = reality.conscious_count();
         
-        assert!(final_info > initial_info);
-        assert!(final_conscious > 0);
+        assert!(final_info > initial);
+        assert!(reality.conscious_count() > 0);
     }
-    
-    #[test]
-    fn test_iirt_validation() {
-        let mut reality = Reality::from_vacuum();
-        reality.add_information((0.0, 0.0, 0.0), 1.5);
-        
-        for snapshot in reality.evolution().max_steps(10) {
-            if snapshot.is_conscious {
-                assert!(snapshot.information_created > 0.0);
-                break;
-            }
-        }
-    }
-} 
+}

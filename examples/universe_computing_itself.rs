@@ -47,7 +47,6 @@ fn main() {
     
     let initial_info = reality.total_information();
     let _initial_conscious = reality.conscious_count();
-    let _initial_max_consciousness = reality.max_consciousness();
     
     println!("Field Evolution Progress");
     println!("=======================");
@@ -58,7 +57,6 @@ fn main() {
         
         let current_info = reality.total_information();
         let current_conscious = reality.conscious_count();
-        let max_consciousness = reality.max_consciousness();
         let info_created = current_info - initial_info;
         
         // Display evolution at regular intervals
@@ -69,7 +67,7 @@ fn main() {
             println!("│ • Total Information: {:>8.1} bits                 │", current_info);
             println!("│ • Net Creation: {:>6.1} bits                      │", info_created);
             println!("│ • Integrated Points: {:>6} / {}            │", current_conscious, 64_u64.pow(3));
-            println!("│ • Peak Integration: {:>5.3}                       │", max_consciousness);
+            println!("│ • Integration %: {:>5.1}%                       │", 100.0 * current_conscious as f64 / 64_f64.powi(3));
             println!("│ • Creation Rate: {:>8.1} bits/step             │", info_created / step as f64);
             println!("└─────────────────────────────────────────────────────┘");
             
@@ -104,7 +102,6 @@ fn main() {
     
     let final_info = reality.total_information();
     let final_conscious = reality.conscious_count();
-    let final_max = reality.max_consciousness();
     let total_created = final_info - initial_info;
     
     println!("Quantitative Results:");
@@ -113,7 +110,7 @@ fn main() {
     println!("• Integrated points: {} / {} ({:.1}%)", 
              final_conscious, 64_u64.pow(3), 
              100.0 * final_conscious as f64 / 64_f64.powi(3));
-    println!("• Peak integration level: {:.3}", final_max);
+    println!("• Integration coverage: {:.1}%", 100.0 * final_conscious as f64 / 64_f64.powi(3));
     
     // Demonstrate emergent physical phenomena
     println!("\nEmergent Phenomena Analysis");

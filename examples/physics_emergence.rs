@@ -34,11 +34,10 @@ fn main() {
     
     println!("\nAnalyzing emergent physical phenomena...\n");
     
-    // Collect snapshots first to avoid borrow checker issues
-    let snapshots: Vec<_> = reality.evolution().max_steps(30).collect();
-    
-    for (index, _) in snapshots.iter().enumerate() {
-        let step = (index + 1) as u64;
+    // Evolve reality and analyze physics emergence
+    for step in 1..=30 {
+        reality.evolve();
+        
         if step % 5 == 0 {
             analyze_emergent_phenomena(&reality, step);
         }
