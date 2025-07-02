@@ -16,6 +16,7 @@ path = "src/lib.rs"
 
 [dependencies]
 rayon = { version = "1.7", optional = true }
+rayon = { version = "1.7", optional = true }
 
 [dev-dependencies]
 
@@ -70,5 +71,7 @@ path = "examples/cosmic_prediction.rs"
 
 
 [features]
+default = ["parallel"]
+parallel = ["rayon"] 
 default = ["parallel"]
 parallel = ["rayon"] 
