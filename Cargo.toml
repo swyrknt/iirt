@@ -64,6 +64,10 @@ path = "examples/exponential_vacuum_test.rs"
 name = "vacuum_evolution_proof"
 path = "examples/vacuum_evolution_proof.rs"
 
+[[example]]
+name = "cosmic_prediction"
+path = "examples/cosmic_prediction.rs"
+
 
 [features]
 default = ["parallel"]

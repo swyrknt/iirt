@@ -7,6 +7,9 @@
 
 use crate::constants::*;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 /// Information density at a spatial point
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Information(pub f64);
@@ -104,19 +107,66 @@ impl Reality {
     pub fn evolve(&mut self) {
         let mut new_field = self.field.clone();
         
-        for i in 1..self.resolution-1 {
-            for j in 1..self.resolution-1 {
-                for k in 1..self.resolution-1 {
-                    let idx = self.index(i, j, k);
-                    let info = self.field[idx];
-                    
-                    // IIRT equation
-                    let laplacian = self.laplacian(i, j, k);
-                    let diffusion_term = self.diffusion * laplacian;
-                    let intrinsic_term = info.intrinsic_rate();
-                    let change = diffusion_term + intrinsic_term;
-                    
-                    new_field[idx] = Information::new(info.density() + self.dt * change);
+        #[cfg(feature = "parallel")]
+        {
+            // Parallel version using rayon
+            let resolution = self.resolution;
+            let diffusion = self.diffusion;
+            let dt = self.dt;
+            let field = &self.field;
+            
+            let indices: Vec<_> = (1..resolution-1)
+                .flat_map(|i| (1..resolution-1)
+                    .flat_map(move |j| (1..resolution-1)
+                        .map(move |k| (i, j, k))))
+                .collect();
+            
+            let updates: Vec<_> = indices.par_iter().map(|&(i, j, k)| {
+                let idx = k * resolution * resolution + j * resolution + i;
+                let info = field[idx];
+                
+                // Calculate laplacian
+                let center = field[idx].density();
+                let neighbors = [
+                    field[(k * resolution * resolution + j * resolution + (i-1))].density(),
+                    field[(k * resolution * resolution + j * resolution + (i+1))].density(),
+                    field[(k * resolution * resolution + (j-1) * resolution + i)].density(),
+                    field[(k * resolution * resolution + (j+1) * resolution + i)].density(),
+                    field[((k-1) * resolution * resolution + j * resolution + i)].density(),
+                    field[((k+1) * resolution * resolution + j * resolution + i)].density(),
+                ];
+                let laplacian = neighbors.iter().sum::<f64>() - 6.0 * center;
+                
+                // IIRT equation
+                let diffusion_term = diffusion * laplacian;
+                let intrinsic_term = info.intrinsic_rate();
+                let change = diffusion_term + intrinsic_term;
+                
+                (idx, Information::new(info.density() + dt * change))
+            }).collect();
+            
+            for (idx, new_info) in updates {
+                new_field[idx] = new_info;
+            }
+        }
+        
+        #[cfg(not(feature = "parallel"))]
+        {
+            // Sequential version
+            for i in 1..self.resolution-1 {
+                for j in 1..self.resolution-1 {
+                    for k in 1..self.resolution-1 {
+                        let idx = self.index(i, j, k);
+                        let info = self.field[idx];
+                        
+                        // IIRT equation
+                        let laplacian = self.laplacian(i, j, k);
+                        let diffusion_term = self.diffusion * laplacian;
+                        let intrinsic_term = info.intrinsic_rate();
+                        let change = diffusion_term + intrinsic_term;
+                        
+                        new_field[idx] = Information::new(info.density() + self.dt * change);
+                    }
                 }
             }
         }
@@ -133,12 +183,26 @@ impl Reality {
     
     /// Total information in field
     pub fn total_information(&self) -> f64 {
-        self.field.iter().map(|i| i.density()).sum()
+        #[cfg(feature = "parallel")]
+        {
+            self.field.par_iter().map(|i| i.density()).sum()
+        }
+        #[cfg(not(feature = "parallel"))]
+        {
+            self.field.iter().map(|i| i.density()).sum()
+        }
     }
     
     /// Count conscious points
     pub fn conscious_count(&self) -> usize {
-        self.field.iter().filter(|i| i.is_conscious()).count()
+        #[cfg(feature = "parallel")]
+        {
+            self.field.par_iter().filter(|i| i.is_conscious()).count()
+        }
+        #[cfg(not(feature = "parallel"))]
+        {
+            self.field.iter().filter(|i| i.is_conscious()).count()
+        }
     }
     
     /// Check if any point is conscious
