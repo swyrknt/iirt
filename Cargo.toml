@@ -16,7 +16,6 @@ path = "src/lib.rs"
 
 [dependencies]
 rayon = { version = "1.7", optional = true }
-rayon = { version = "1.7", optional = true }
 
 [dev-dependencies]
 
@@ -65,13 +64,6 @@ path = "examples/exponential_vacuum_test.rs"
 name = "vacuum_evolution_proof"
 path = "examples/vacuum_evolution_proof.rs"
 
-[[example]]
-name = "cosmic_prediction"
-path = "examples/cosmic_prediction.rs"
-
-
 [features]
-default = ["parallel"]
-parallel = ["rayon"] 
 default = ["parallel"]
 parallel = ["rayon"] 

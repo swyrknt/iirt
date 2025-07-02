@@ -16,7 +16,7 @@
 //! - Hopfield, J.J. (1982). Neural networks and physical systems
 
 use iirt_engine::*;
-use std::collections::HashMap;
+
 
 fn main() {
     println!("INFORMATION MEMORY AND LEARNING DYNAMICS");
@@ -543,4 +543,83 @@ fn calculate_network_coherence(reality: &Reality, nodes: &[(&str, (f64, f64, f64
     }
     
     coherence / nodes.len() as f64
+}
+
+fn calculate_local_lyapunov(values: &[f64], history: &[Vec<f64>]) -> f64 {
+    if history.len() < 2 {
+        return 0.0;
+    }
+    
+    let prev_values = history.last().unwrap();
+    let mut divergence = 0.0;
+    
+    for (curr, prev) in values.iter().zip(prev_values.iter()) {
+        let delta = (curr - prev).abs();
+        if delta > 1e-10 {
+            divergence += delta.ln();
+        }
+    }
+    
+    divergence / values.len() as f64
+}
+
+fn calculate_retention_statistics(pre: &[f64], post: &[f64]) -> (f64, f64) {
+    let mut retentions = Vec::new();
+    
+    for (pre_val, post_val) in pre.iter().zip(post.iter()) {
+        if *pre_val > 1e-6 {
+            retentions.push(post_val / pre_val);
+        }
+    }
+    
+    if retentions.is_empty() {
+        return (0.0, 0.0);
+    }
+    
+    let mean = retentions.iter().sum::<f64>() / retentions.len() as f64;
+    let variance = retentions.iter()
+        .map(|x| (x - mean).powi(2))
+        .sum::<f64>() / retentions.len() as f64;
+    let std_error = variance.sqrt() / (retentions.len() as f64).sqrt();
+    
+    (mean, std_error)
+}
+
+fn calculate_relaxation_time(relaxation_data: &[(f64, Vec<f64>)]) -> f64 {
+    if relaxation_data.len() < 2 {
+        return 0.0;
+    }
+    
+    let initial_values = &relaxation_data[0].1;
+    let mut half_life_time = 0.0;
+    
+    for (time, values) in relaxation_data.iter().skip(1) {
+        let current_deviation: f64 = values.iter().zip(initial_values.iter())
+            .map(|(curr, init)| (curr - init).abs())
+            .sum::<f64>() / values.len() as f64;
+        
+        if current_deviation < 0.5 {
+            half_life_time = *time;
+            break;
+        }
+    }
+    
+    if half_life_time == 0.0 {
+        half_life_time = relaxation_data.last().unwrap().0;
+    }
+    
+    half_life_time * 1.44 // Convert half-life to relaxation time (τ = t₁/₂ / ln(2))
+}
+
+fn calculate_std_dev(values: &[f64]) -> f64 {
+    if values.len() < 2 {
+        return 0.0;
+    }
+    
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let variance = values.iter()
+        .map(|x| (x - mean).powi(2))
+        .sum::<f64>() / (values.len() - 1) as f64;
+    
+    variance.sqrt()
 }
