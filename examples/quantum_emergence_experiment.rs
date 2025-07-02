@@ -19,7 +19,7 @@
 //! - Bell, J.S. (1964). On the Einstein-Podolsky-Rosen paradox
 
 use iirt_engine::*;
-use std::f64::consts::PI;
+
 
 fn main() {
     println!("🔬 QUANTUM EMERGENCE FROM INFORMATION FIELDS");
@@ -87,7 +87,7 @@ fn test_uncertainty_principle() {
     println!("-------------|------------------|---------------|----------");
     
     for &density in &test_densities {
-        let info = Information::new(density);
+        let _info = Information::new(density);
         let uncertainty = (0.5 / (1.0 + density)).max(MIN_UNCERTAINTY);
         let product = density * uncertainty;
         
